@@ -1,6 +1,6 @@
 import numpy as np
 import dask
-import code
+import json
 from numba import jit
     
 @jit
@@ -84,8 +84,11 @@ def get_min_card_one_two(values, results):
     return values[values_index]
 
 def main():
-    card_one = 9198
-    card_two = 13078
+    data = json.load(
+        open("solve_min_interest.json","r")
+    )
+    card_one = data["card_one"][0]
+    card_two = data["card_two"][0]
     orig_card_one = card_one
     orig_card_two = card_two
     budget = 7884.78
