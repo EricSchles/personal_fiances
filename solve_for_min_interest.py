@@ -2,7 +2,7 @@ import numpy as np
 import dask
 import json
 from numba import jit
-    
+
 @jit
 def equalizing_cards(cards):
     card_inequality = []
@@ -33,31 +33,33 @@ def equation(cards):
          if "card" in key]
     )
 
-@jit
-def budget_above_zero(orig_card_one, orig_card_two,
-                      card_one_two, orig_budget):
-    card_one_diff = orig_card_one - card_one_two[0]
-    card_two_diff = orig_card_one - card_one_two[1]
-    if (card_one_diff + card_two_diff) > orig_budget:
+def budget_above_zero(orig_cards,
+                      guess, orig_budget):
+    card_diffs = 0
+    for index, orig_card in enumerate(orig_cards):
+        card_diffs += orig_card[0] - guess[index][0]
+    if card_diffs > orig_budget:
         return False
     return True
 
 @jit
-def update_budget(budget, card_two, card_one_two):
-    card_two_diff = card_two - card_one_two[1]
+def update_budget(budget, card_two, guess):
+    card_two_diff = card_two[0] - guess[1][0]
     budget -= card_two_diff
     return budget
 
 @jit
-def update_card_one_two(card_one_two, card_one):
-    card_two = card_one_two[1]
-    card_one -= 0.01
+def update_card_guess(guess, card_one):
+    card_two = guess[1]
+    card_one[0] -= 0.01
     return card_two, card_one
 
 @jit
 def possible_optimal_values(cards, orig_cards,
                             budget, orig_budget,
                             max_guesses):
+    card_one = orig_cards[0]
+    card_two = orig_cards[1]
     values = []
     for _ in range(max_guesses):
         guess = find_optimal_cards(
@@ -77,15 +79,15 @@ def possible_optimal_values(cards, orig_cards,
             card_two,
             guess
         )
-        values.append(card_one_two)
-        card_two, card_one = update_card_one_two(
+        values.append(guess)
+        card_two, card_one = update_card_guess(
             guess, card_one
         )
         if budget == 0 or card_two == 0 or card_one == 0:
             break
     return values
 
-def get_all_optimal_card_one_two(values):
+def get_all_optimal_guess(values):
     results = []
     for value in values:
         cards = value
@@ -94,22 +96,25 @@ def get_all_optimal_card_one_two(values):
     return dask.compute(*results)
 
 @jit
-def get_min_card_one_two(values, results):
+def get_min_guess(values, results):
     values_index = results.index(min(results))
     return values[values_index]
 
 @jit
 def adjust_percentages(cards):
-    return [card[1] * 0.01) + 1 for card in cards]
+    return [(card[1] * 0.01) + 1 for card in cards]
     
 def main():
     data = json.load(
         open("solve_min_interest.json","r")
     )
+    card_one = data["card_one"]
+    card_two = data["card_two"]
+
     cards = [data[key]
              for key in data
              if "card" in key]
-    cards = sorted(cards, lambda key: key[1])
+    cards = sorted(cards, key=lambda x: x[1])
     orig_cards = cards[:]
     budget = data["budget"]
     orig_budget = budget
@@ -122,9 +127,9 @@ def main():
         budget, orig_budget,
         max_guesses
     )
-    results = get_all_optimal_card_one_two(values)
+    results = get_all_optimal_guess(values)
     
-    values = get_min_card_one_two(
+    values = get_min_guess(
         values, results
     )
     new_card_one = values[0]
